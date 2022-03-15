@@ -13,4 +13,5 @@ A minimal PyTorch implementation of YOLOv4.
 - Load pretrained darknet modle and darknet weights to do the inference
 - Inference Traffic Light Classification:
 '''sh
-python inference_YOLOv4_TL_Classification_TRACK.py --det_weight {weight_file_of_detector} --det_cfg {config_file_of_detector} --cl_weight {classification_weight} --input {input_file_directory} --showResult {save_result_true_false}    
+python inference_YOLOv4_TL_Classification_TRACK.py --det_weight {weight_file_of_detector} --det_cfg {config_file_of_detector} --cl_weight {classification_weight} --input {input_file_directory} --showResult {save_result_true_false} 
+'''   
