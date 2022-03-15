@@ -105,13 +105,13 @@ def preprocess(image_path, max_size=(512,512)):
 
     return ori_imgs, imgsT
 
-def main(enginePath, imgPath, imgSize, inTestType, saveResult, nClasses):
+def main(detectorWeightPath, imgPath, imgSize, inTestType, saveResult, nClasses, detectorCfgPath, classificationWeightPath, outResultPath, classNamesPath):
     if nClasses == 20:
-        classNamesfile = './data/voc.names'.format(working_dir)
+        classNamesfile = classNamesPath.format(working_dir)
     elif nClasses == 80:
-        classNamesfile = './data/coco.names'.format(working_dir)
+        classNamesfile = classNamesPath.format(working_dir)
     else:
-        classNamesfile = './data/KETIDB.names'.format(working_dir)
+        classNamesfile = classNamesPath.format(working_dir)
     
     classNames = load_class_names(classNamesfile)
     batchSize = 1
@@ -123,19 +123,19 @@ def main(enginePath, imgPath, imgSize, inTestType, saveResult, nClasses):
     if modeTL: 
         #Traffic Light Classification Mode.
         if classificationTL:
-            weightFile = "./data/weight/trafficLight_model_64_32_best_rgb_0.946_extra.pt"
+            #weightFile = "./data/weight/trafficLight_model_64_32_best_rgb_0.946_extra.pt"
             #weightFile = "./data/weight/trafficLight_model_64_32_best_lab_coordconv_0.964_extra.pt"
 
             #recognizeTL = classifierTL(classifierType='64x64', weightFile=weightFile, batchSize=batchSize)
-            recognizeTL = classifierTL(classifierType='32x32', weightFile=weightFile, batchSize=batchSize)
+            recognizeTL = classifierTL(classifierType='32x32', weightFile=classificationWeightPath, batchSize=batchSize)
 
         #Tracking 
         if modeTL and trackingTL:
             tracking = trackerTL(trackerType='SORT', classNames=classNames, batchSize=batchSize)
 
     ### YoloV4 model initialize
-    yolov4_cfg = "./data/yolov4.cfg"
-    yolov4_weight = "./data/weight/yolov4_211203.weights"
+    yolov4_cfg = detectorCfgPath
+    yolov4_weight = detectorWeightPath
     
     model = Darknet(yolov4_cfg).to('cuda')
     #model.print_network()
@@ -169,7 +169,7 @@ def main(enginePath, imgPath, imgSize, inTestType, saveResult, nClasses):
                 tl_box_id = []
                 front_camera_idx = 0 if batchSize == 1 else 1
                 traffic_light_class_number = classNames.index("Traffic Light")
-                outDir = "./pred/ros/"
+                outDir = outResultPath
                 fname_classification = outDir + imgFile[:-4] + "_cropp.jpg"
                 fname_tracking = outDir + imgFile[:-4] + "_cropp.jpg"
 
@@ -193,7 +193,7 @@ def main(enginePath, imgPath, imgSize, inTestType, saveResult, nClasses):
                     #    plot_boxes_cv2_tl(imageSrc, tl_box, savename=fileName, class_names=classNames)
 
                 if trackingTL:
-                    outDir = "./pred/ros/"
+                    outDir = outResultPath
                     fileNameTrack = outDir + imgFile[:-4] + "_tracked.jpg"
                     
                     #if len(tl_box) > 0:
@@ -206,7 +206,7 @@ def main(enginePath, imgPath, imgSize, inTestType, saveResult, nClasses):
             processImg += 1
 
             if saveResult:
-                outDir = "./pred/ros/"
+                outDir = outResultPath
                 fileName_corrected = outDir + imgFile + "_detected2.jpg"
                 plot_boxes_cv2_tl(imageSrc, tl_box_tr, savename=fileName_corrected, class_names=classNames)
         print("Total Frame Rate = %.2f fps" %(processImg/totalTime))
@@ -216,7 +216,7 @@ def main(enginePath, imgPath, imgSize, inTestType, saveResult, nClasses):
             boxes, elapsed_time, imageSrc = detect_yolo_trt(model, img_path, imgSize, nClasses)
 
         if saveResult:
-            outDir = "./pred/"
+            outDir = outResultPath
             fileName = outDir + (os.path.splitext(os.path.basename(imgPath))[0]) + "_detected.jpg"
             #print("File Name:",fileName)
             plot_boxes_cv2(imageSrc, boxes[0], savename=fileName, class_names=classNames)
@@ -266,21 +266,31 @@ def detect_yolo_trt(model, image_src, image_size, num_classes):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Hyperparams")
-    parser.add_argument("--engine", nargs="?", type=str, default="./data/bin/yolov4_211203_fp16.engine", help="engine file name",)
+    parser.add_argument("--det_weight", nargs="?", type=str, default="./data/weight/yolov4_211203.weights", help="Detector's pretrained weight",)
+    parser.add_argument("--det_cfg", nargs="?", type=str, default="./data/yolov4.cfg", help="Detector's cfg (YoloV4 config file))",)
+    parser.add_argument("--cl_weight", nargs="?", type=str, default="./data/weight/trafficLight_model_64_32_best_rgb_0.946_extra.pt", help="Detector's pretrained weight",)
     parser.add_argument("--width", nargs="?", type=int, default=608, help="target input width",)
     parser.add_argument("--height", nargs="?", type=int, default=608, help="target input height", )
     parser.add_argument("--input", nargs="?", type=str, default="./data/tl_complex_test/", help="input file name or input directory depends on inputTestType", )
     parser.add_argument("--inputTestType", nargs="?", type=str, default="dir", help="input test TYPE: single / dir", )
     parser.add_argument("--showResult", nargs="?", type=bool, default=True, help="Show segmentation result, result file saved in /pred/ folder",)
+    parser.add_argument("--resultPath", nargs="?", type=str, default="./pred/ros/", help="Result path",)
+    parser.add_argument("--classNamesPath", nargs="?", type=str, default="./data/KETIDB.names", help="Detector Class Names",)
     parser.add_argument("--classes", nargs="?", type=int, default=7, help="weight file name",)
 
     args = parser.parse_args()
 
     saveResult = args.showResult
-    enginePath = args.engine
+    detectorWeightPath = args.det_weight
+    detectorCfgPath = args.det_cfg
+    classificationWeightPath = args.cl_weight
+    
     imgPath = args.input
     nClasses = args.classes
     inTestType = args.inputTestType
     imgSize = (args.width, args.height)
+    outResultPath = args.resultPath
+    classNamesPath = args.classNamesPath
+    
 
-    main(enginePath, imgPath, imgSize, inTestType, saveResult, nClasses)
+    main(detectorWeightPath, imgPath, imgSize, inTestType, saveResult, nClasses, detectorCfgPath, classificationWeightPath, outResultPath, classNamesPath)
