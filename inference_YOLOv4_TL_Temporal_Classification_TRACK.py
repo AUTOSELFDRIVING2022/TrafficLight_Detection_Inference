@@ -71,7 +71,10 @@ def main(detectorWeightPath, imgPath, imgSize, inTestType, saveResult, nClasses,
 
             #recognizeTL = classifierTL(classifierType='64x64', weightFile=weightFile, batchSize=batchSize)
             recognizeTL = classifierTL_Temporal(classifierType='resnetLSTM', weightFile=classificationWeightPath, batchSize=batchSize)
-
+        #Tracking 
+        if modeTL and trackingTL:
+            tracking = trackerTL(trackerType='SORT', classNames=classNames, batchSize=batchSize)
+            
     ### YoloV4 model initialize
     yolov4_cfg = detectorCfgPath
     yolov4_weight = detectorWeightPath
@@ -91,6 +94,7 @@ def main(detectorWeightPath, imgPath, imgSize, inTestType, saveResult, nClasses,
         #print("---------------")
         #print(imgPath)
         imgPaths = []
+        imgFiles = []
         for imgFile in tqdm(sorted(os.listdir(imgPath)), desc='YoloV4', mininterval=0.01):
             _, ext = os.path.splitext(os.path.basename((imgFile)))
         
@@ -99,6 +103,7 @@ def main(detectorWeightPath, imgPath, imgSize, inTestType, saveResult, nClasses,
             
             if len(imgPaths) < tempDataSize:
                 imgPaths.append(imgPath+imgFile)
+                imgFiles.append(imgFile)
                 doInf = False
             elif len(imgPaths) == tempDataSize:
                 doInf = True
@@ -115,11 +120,13 @@ def main(detectorWeightPath, imgPath, imgSize, inTestType, saveResult, nClasses,
                 ### Read input images in DIR
                 #img_path = [os.path.join(imgPath, imgFile) for i in range(tempDataSize)]
 
-                for imgPath in imgPaths:
-                    _boxes, _elapsed_time, _imageSrc = detect_yolo_trt(model, imgPath, imgSize, nClasses)
+                for _imgPath in imgPaths:
+                    _boxes, _elapsed_time, _imageSrc = detect_yolo_trt(model, _imgPath, imgSize, nClasses)
                     boxes.append(_boxes[0])
                     elapsed_time.append(_elapsed_time)
                     imageSrc.append(_imageSrc)
+                
+                
             
             new_boxes = []
             if modeTL and doInf:
@@ -137,6 +144,8 @@ def main(detectorWeightPath, imgPath, imgSize, inTestType, saveResult, nClasses,
                     _new_boxes = []
                     for box_idx, box in enumerate(bboxes):
                         if box[5] == traffic_light_class_number:
+                            if trackingTL:
+                                box.append(0)
                             _tl_box.append(box)
                             _tl_box_id.append(box_idx)
                         else:
@@ -144,25 +153,41 @@ def main(detectorWeightPath, imgPath, imgSize, inTestType, saveResult, nClasses,
                     tl_box.append(_tl_box)
                     tl_box_id.append(_tl_box_id)
                     new_boxes.append(_new_boxes)
-                    
+                
+                if trackingTL:
+                    outDir = outResultPath
+                    fileNameTrack = outDir + imgFile[:-4] + "_tracked.jpg"
+                    tl_box_tr = []
+                    #if len(tl_box) > 0:
+                    for idx, _tl_box in enumerate(tl_box):
+                        _tl_box_tr, imageSrcTrack = tracking.track(_tl_box, imageSrc[idx], fname_tracking)
+                        tl_box_tr.append(_tl_box_tr)
+                
                 if classificationTL:
                     #tl_boxes_classified = tl_classification(boxes, imageSrc, 1, modelTL, traffic_light_class_number,fname_classification)
                     fileName = imgFile + "_detected.jpg"
 
-                    tl_box = recognizeTL.tl_classification(tl_box, imageSrc, fname=fileName)
+                    tl_box, tl_box_classes = recognizeTL.tl_classification(tl_box_tr, imageSrc, fname=fileName)
                     
                     #if __DEBUG_USER__:
                     #    outDir = "./pred/ros/"
                     #    fileName = imgFile + "_detected.jpg"
                     #    plot_boxes_cv2_tl(imageSrc, tl_box, savename=fileName, class_names=classNames)
 
-                totalTime += elapsed_time
-                processImg += 1
+                totalTime += sum(elapsed_time)
+                processImg += tempDataSize
 
                 if saveResult:
                     outDir = outResultPath
-                    fileName_corrected = outDir + imgFile + "_detected2.jpg"
-                    plot_boxes_cv2_tl(imageSrc, tl_box, savename=fileName_corrected, class_names=classNames)
+                    
+                    for tl_idx, _tl_box in enumerate(tl_box):
+                        for idx in range(tempDataSize):
+                            fileName_corrected = outDir + imgFiles[idx][:-4] + "_detected2.jpg"
+                            imageSrc[idx] = plot_boxes_cv2_tl_temporal(imageSrc[idx], _tl_box[idx], tl_box_classes[tl_idx], savename=fileName_corrected, class_names=classNames)
+                
+                ##Remove buff in image path
+                imgPaths = []
+                imgFiles = []
         print("Total Frame Rate = %.2f fps" %(processImg/totalTime))
     else:
         #imageSrc = cv2.imread(imgPath)
@@ -179,7 +204,7 @@ def main(detectorWeightPath, imgPath, imgSize, inTestType, saveResult, nClasses,
 
 def detect_yolo_trt(model, image_src, image_size, num_classes):
     conf_thresh = 0.4
-    conf_thresh_tl = 0.30
+    conf_thresh_tl = 0.4
     
     ##Traffic Light idx
     idx_tl = 6
@@ -222,13 +247,13 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Hyperparams")
     parser.add_argument("--det_weight", nargs="?", type=str, default="./data/weight/yolov4_211203.weights", help="Detector's pretrained weight",)
     parser.add_argument("--det_cfg", nargs="?", type=str, default="./data/yolov4.cfg", help="Detector's cfg (YoloV4 config file))",)
-    parser.add_argument("--cl_weight", nargs="?", type=str, default="./data/weight/resnetLSTM_1.000.pt", help="Detector's pretrained weight",)
+    parser.add_argument("--cl_weight", nargs="?", type=str, default="./data/weight/trafficLight_model.pt", help="Detector's pretrained weight",)
     parser.add_argument("--width", nargs="?", type=int, default=608, help="target input width",)
     parser.add_argument("--height", nargs="?", type=int, default=608, help="target input height", )
     parser.add_argument("--input", nargs="?", type=str, default="./data/tl_complex_test/", help="input file name or input directory depends on inputTestType", )
     parser.add_argument("--inputTestType", nargs="?", type=str, default="dir", help="input test TYPE: single / dir", )
     parser.add_argument("--showResult", nargs="?", type=bool, default=True, help="Show segmentation result, result file saved in /pred/ folder",)
-    parser.add_argument("--resultPath", nargs="?", type=str, default="./pred/ros/", help="Result path",)
+    parser.add_argument("--resultPath", nargs="?", type=str, default="./pred/ros_temporal/", help="Result path",)
     parser.add_argument("--classNamesPath", nargs="?", type=str, default="./data/KETIDB.names", help="Detector Class Names",)
     parser.add_argument("--classes", nargs="?", type=int, default=7, help="weight file name",)
     parser.add_argument("--temp_data_size", nargs="?", type=int, default=10, help="temporal window size",)

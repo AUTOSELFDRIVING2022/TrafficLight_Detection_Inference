@@ -226,7 +226,8 @@ class ResNetLSTM(nn.Module):
         #print('avgpool shape:', x.shape)
         x = torch.flatten(x, 1)
         #print('flatten shape:', x.shape)
-        x = x.reshape(batch, self.nseq, -1)
+        #x = x.reshape(batch, self.nseq, -1)
+        x = x.reshape(batch, x.shape[0], -1)
         #print('reshape for LSTM(B,S,W,H):', x.shape)
         
         lstm_out, (ht, ct) = self.lstm(x)

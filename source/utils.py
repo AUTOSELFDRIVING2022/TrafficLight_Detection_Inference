@@ -89,6 +89,66 @@ def nms_cpu(boxes, confs, nms_thresh=0.5, min_mode=False):
     
     return np.array(keep)
 
+def plot_boxes_cv2_tl_temporal(img, boxes, tl_classes, savename=None, class_names=None, color=None):
+    import cv2
+    img = np.copy(img)
+    colors = np.array([[1, 0, 1], [0, 0, 1], [0, 1, 1], [0, 1, 0], [1, 1, 0], [1, 0, 0]], dtype=np.float32)
+    tl_names = ['green', 'green_left','red_left',   'red',    'yellow', 'off',     'other', 'red_yellow','yellow_green','yellow_left4','red2',   'yellow2',   'yellow3_2','yellow3_3','red3_1','red3_2','red3_3']
+    rgbTL = [[0,128,0],  [173,255,47],[60,179,113],[0,0,255],[0,255,255], [0,0,0],[0,0,0], [0,255,255], [0,255,255],   [0,255,255],  [0,0,255], [0,255,255], [0,255,255],[0,255,255],[0,0,255],[0,0,255],[0,0,255] ]
+    traffic_light_class_number = class_names.index("Traffic Light")
+
+    def get_color(c, x, max_val):
+        ratio = float(x) / max_val * 5
+        i = int(math.floor(ratio))
+        j = int(math.ceil(ratio))
+        ratio = ratio - i
+        r = (1 - ratio) * colors[i][c] + ratio * colors[j][c]
+        return int(r * 255)
+
+    width = img.shape[1]
+    height = img.shape[0]
+    for i in range(len(boxes)):
+        #box = boxes[i]
+        box = boxes
+        x1 = int(box[0] * width)
+        y1 = int(box[1] * height)
+        x2 = int(box[2] * width)
+        y2 = int(box[3] * height)
+        #tl_cls = int(box[6])
+        tl_cls = int(tl_classes)
+        
+        if box[0] == -1 and box[1] == -1 and box[2] == -1 and box[3] == -1:
+            return img
+        
+        if color:
+            rgb = color
+        else:
+            rgb = (255, 0, 0)
+        if len(box) >= 6 and class_names:
+            cls_conf = box[4]
+            cls_id = int(box[5])
+            #print('%s: %f' % (class_names[cls_id], cls_conf))
+            classes = len(class_names)
+            offset = cls_id * 123457 % classes
+            red = get_color(2, offset, classes)
+            green = get_color(1, offset, classes)
+            blue = get_color(0, offset, classes)
+            if color is None:
+                rgb = (red, green, blue)
+            if cls_id == traffic_light_class_number:
+                #print(tl_cls)
+                img = cv2.putText(img, tl_names[tl_cls], (x1+10, y1), cv2.FONT_HERSHEY_SIMPLEX, 1.2, rgbTL[tl_cls], 1)
+            else:
+                img = cv2.putText(img, class_names[cls_id], (x1, y1), cv2.FONT_HERSHEY_SIMPLEX, 1.2, rgb, 1)
+        if cls_id == traffic_light_class_number:
+            img = cv2.rectangle(img, (x1, y1), (x2, y2), rgbTL[tl_cls], 1)
+        else:
+            img = cv2.rectangle(img, (x1, y1), (x2, y2), rgb, 1)
+    if savename:
+        #print("save plot results to %s" % savename)
+        cv2.imwrite(savename, img)
+    return img
+
 def plot_boxes_cv2_tl(img, boxes, savename=None, class_names=None, color=None):
     import cv2
     img = np.copy(img)
