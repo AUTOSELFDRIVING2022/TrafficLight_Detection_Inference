@@ -8,6 +8,7 @@ from source.modelTrafficLight import TrafficLightNet, TrafficLightNet_32x32, Tra
 from source.model.modelTrafficLightLSTM import TrafficLightNet_64x32_LSTM, TrafficLightNet_128x128_LSTM
 from source.model.resnet18LSTM import ResNetLSTM, BasicBlock
 from source.model.TSM_model import TSN
+from source.resnet18 import ResNet18, BasicBlock
 
 class classifierTL(object):
     def __init__(self, classifierType='32x32', weightFile='None', batchSize = 1):
@@ -16,6 +17,8 @@ class classifierTL(object):
             #self.modelTL = TrafficLightNet_32x32_noSTN(nclasses=17).to('cuda')
             #self.modelTL = TrafficLightNet_64x32_coordConv(nclasses=7).to('cuda')
             self.modelTL = TrafficLightNet_64x32_noSTN(nclasses=7).to('cuda')
+        elif classifierType == 'resnet':
+            self.modelTL = ResNet18(BasicBlock, [2, 2, 2, 2], 7).to('cuda')
         else:
             self.modelTL = TrafficLightNet_64x64_noSTN(nclasses=7).to('cuda')
             #self.modelTL = TrafficLightNet_64x64_coordConv(nclasses=7).to('cuda')
@@ -42,7 +45,8 @@ class classifierTL(object):
             return -1
 
         orgBoxImg = cv2.cvtColor(imageSrc[y1:y2,x1:x2],cv2.COLOR_BGR2RGB)
-        boxImg = torch.from_numpy(np.expand_dims(cv2.resize(orgBoxImg,(64,32)).transpose(2,0,1), axis=0))
+        boxImg = torch.from_numpy(np.expand_dims(cv2.resize(orgBoxImg,(128,64)).transpose(2,0,1), axis=0))
+        #boxImg = torch.from_numpy(np.expand_dims(cv2.resize(orgBoxImg,(64,32)).transpose(2,0,1), axis=0))
         #boxImg = torch.from_numpy(np.expand_dims(cv2.resize(orgBoxImg,(32,32)).transpose(2,0,1), axis=0))
         #boxImg = torch.from_numpy(np.expand_dims(cv2.resize(orgBoxImg,(64,64)).transpose(2,0,1), axis=0))
         x = (boxImg / 255.0).to('cuda')

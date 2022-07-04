@@ -10,7 +10,7 @@ from source.sort import Sort as SORT
 
 class trackerTL(object):
     def __init__(self, trackerType='SORT', classNames='None', batchSize = 1):
-        self.traffic_light_class_number = classNames.index("Traffic Light")
+        self.traffic_light_class_number = classNames.index("TL")
         
         self.front_camera_idx = 0 if batchSize == 1 else 1
         self.trackerType = trackerType

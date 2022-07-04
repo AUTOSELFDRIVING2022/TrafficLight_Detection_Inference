@@ -273,5 +273,4 @@ if __name__ == '__main__':
     classNamesPath = args.classNamesPath
     tempDataSize = args.temp_data_size
     
-
     main(detectorWeightPath, imgPath, imgSize, inTestType, saveResult, nClasses, detectorCfgPath, classificationWeightPath, outResultPath, classNamesPath, tempDataSize)

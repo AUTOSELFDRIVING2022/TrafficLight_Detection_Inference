@@ -11,8 +11,6 @@ import pycuda.autoinit
 import argparse
 import torch
 
-#sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
-
 from source.utils import *
 from tqdm import tqdm
 
@@ -48,7 +46,7 @@ def preprocess(image_path, max_size=(512,512)):
 
     return ori_imgs, imgsT
 
-def main(detectorWeightPath, imgPath, imgSize, inTestType, saveResult, nClasses, detectorCfgPath, classificationWeightPath, outResultPath, classNamesPath):
+def main(detectorWeightPath, imgPath, imgSize, inTestType, saveResult, nClasses, detectorCfgPath, classificationWeightPath, outResultPath, classNamesPath, classification_with_detection):
     if nClasses == 20:
         classNamesfile = classNamesPath.format(working_dir)
     elif nClasses == 80:
@@ -60,17 +58,15 @@ def main(detectorWeightPath, imgPath, imgSize, inTestType, saveResult, nClasses,
     batchSize = 1
 
     #Classification
-    modeTL = True 
+    modeTL = classification_with_detection 
     classificationTL = True
     trackingTL = True
     if modeTL: 
         #Traffic Light Classification Mode.
         if classificationTL:
-            #weightFile = "./data/weight/trafficLight_model_64_32_best_rgb_0.946_extra.pt"
-            #weightFile = "./data/weight/trafficLight_model_64_32_best_lab_coordconv_0.964_extra.pt"
-
             #recognizeTL = classifierTL(classifierType='64x64', weightFile=weightFile, batchSize=batchSize)
-            recognizeTL = classifierTL(classifierType='32x32', weightFile=classificationWeightPath, batchSize=batchSize)
+            #recognizeTL = classifierTL(classifierType='32x32', weightFile=classificationWeightPath, batchSize=batchSize)
+            recognizeTL = classifierTL(classifierType='resnet', weightFile=classificationWeightPath, batchSize=batchSize)
 
         #Tracking 
         if modeTL and trackingTL:
@@ -111,7 +107,7 @@ def main(detectorWeightPath, imgPath, imgSize, inTestType, saveResult, nClasses,
                 tl_box = []
                 tl_box_id = []
                 front_camera_idx = 0 if batchSize == 1 else 1
-                traffic_light_class_number = classNames.index("Traffic Light")
+                traffic_light_class_number = classNames.index("TL")
                 outDir = outResultPath
                 fname_classification = outDir + imgFile[:-4] + "_cropp.jpg"
                 fname_tracking = outDir + imgFile[:-4] + "_cropp.jpg"
@@ -145,13 +141,21 @@ def main(detectorWeightPath, imgPath, imgSize, inTestType, saveResult, nClasses,
                     #if __DEBUG_USER__:
                     #    cv2.imwrite(fileNameTrack, imageSrcTrack) 
 
-            totalTime += elapsed_time
-            processImg += 1
+                totalTime += elapsed_time
+                processImg += 1
 
-            if saveResult:
-                outDir = outResultPath
-                fileName_corrected = outDir + imgFile + "_detected2.jpg"
-                plot_boxes_cv2_tl(imageSrc, tl_box_tr, savename=fileName_corrected, class_names=classNames)
+                if saveResult:
+                    outDir = outResultPath
+                    fileName_corrected = outDir + imgFile + "_detected2.jpg"
+                    plot_boxes_cv2_tl(imageSrc, tl_box_tr, savename=fileName_corrected, class_names=classNames)
+            else: 
+                totalTime += elapsed_time
+                processImg += 1
+
+                if saveResult:
+                    outDir = outResultPath
+                    fileName_corrected = outDir + imgFile + "_detected2.jpg"
+                    plot_boxes_cv2(imageSrc, boxes[0], savename=fileName_corrected, class_names=classNames)
         print("Total Frame Rate = %.2f fps" %(processImg/totalTime))
     else:
         #imageSrc = cv2.imread(imgPath)
@@ -211,15 +215,20 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Hyperparams")
     parser.add_argument("--det_weight", nargs="?", type=str, default="./data/weight/yolov4_211203.weights", help="Detector's pretrained weight",)
     parser.add_argument("--det_cfg", nargs="?", type=str, default="./data/yolov4.cfg", help="Detector's cfg (YoloV4 config file))",)
-    parser.add_argument("--cl_weight", nargs="?", type=str, default="./data/weight/trafficLight_model_64_32_best_rgb_0.946_extra.pt", help="Detector's pretrained weight",)
+    #parser.add_argument("--cl_weight", nargs="?", type=str, default="./data/weight/trafficLight_model_64_32_best_rgb_0.946_extra.pt", help="Detector's pretrained weight",)
+    parser.add_argument("--cl_weight", nargs="?", type=str, default="./data/weight/best_epoch_resnet18_220701.bin", help="Detector's pretrained weight",)
     parser.add_argument("--width", nargs="?", type=int, default=608, help="target input width",)
     parser.add_argument("--height", nargs="?", type=int, default=608, help="target input height", )
-    parser.add_argument("--input", nargs="?", type=str, default="./data/tl_complex_test/", help="input file name or input directory depends on inputTestType", )
+    #parser.add_argument("--input", nargs="?", type=str, default="./data/tl_complex_test/", help="input file name or input directory depends on inputTestType", )
+    parser.add_argument("--input", nargs="?", type=str, default="./data/Sony_New_Camera_0630/Camera0/", help="input file name or input directory depends on inputTestType", )
     parser.add_argument("--inputTestType", nargs="?", type=str, default="dir", help="input test TYPE: single / dir", )
     parser.add_argument("--showResult", nargs="?", type=bool, default=True, help="Show segmentation result, result file saved in /pred/ folder",)
-    parser.add_argument("--resultPath", nargs="?", type=str, default="./pred/ros/", help="Result path",)
+    #parser.add_argument("--resultPath", nargs="?", type=str, default="./pred/ros/", help="Result path",)
+    #parser.add_argument("--resultPath", nargs="?", type=str, default="./pred/Sony_New_Camera_0630/Camera1/", help="Result path",)
+    parser.add_argument("--resultPath", nargs="?", type=str, default="./pred/Sony_New_Camera_0630/Camera0_NEW_CLASSIFIER/", help="Result path",)
     parser.add_argument("--classNamesPath", nargs="?", type=str, default="./data/KETIDB.names", help="Detector Class Names",)
     parser.add_argument("--classes", nargs="?", type=int, default=7, help="weight file name",)
+    parser.add_argument("--tl_classification", type=bool, default=True, help="Run YoloV4 with Traffic Light Classification.",)
 
     args = parser.parse_args()
 
@@ -234,6 +243,6 @@ if __name__ == '__main__':
     imgSize = (args.width, args.height)
     outResultPath = args.resultPath
     classNamesPath = args.classNamesPath
+    classification_with_detection = args.tl_classification
     
-
-    main(detectorWeightPath, imgPath, imgSize, inTestType, saveResult, nClasses, detectorCfgPath, classificationWeightPath, outResultPath, classNamesPath)
+    main(detectorWeightPath, imgPath, imgSize, inTestType, saveResult, nClasses, detectorCfgPath, classificationWeightPath, outResultPath, classNamesPath, classification_with_detection)

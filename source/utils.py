@@ -155,7 +155,7 @@ def plot_boxes_cv2_tl(img, boxes, savename=None, class_names=None, color=None):
     colors = np.array([[1, 0, 1], [0, 0, 1], [0, 1, 1], [0, 1, 0], [1, 1, 0], [1, 0, 0]], dtype=np.float32)
     tl_names = ['green', 'green_left','red_left',   'red',    'yellow', 'off',     'other', 'red_yellow','yellow_green','yellow_left4','red2',   'yellow2',   'yellow3_2','yellow3_3','red3_1','red3_2','red3_3']
     rgbTL = [[0,128,0],  [173,255,47],[60,179,113],[0,0,255],[0,255,255], [0,0,0],[0,0,0], [0,255,255], [0,255,255],   [0,255,255],  [0,0,255], [0,255,255], [0,255,255],[0,255,255],[0,0,255],[0,0,255],[0,0,255] ]
-    traffic_light_class_number = class_names.index("Traffic Light")
+    traffic_light_class_number = class_names.index("TL")
 
     def get_color(c, x, max_val):
         ratio = float(x) / max_val * 5
@@ -230,9 +230,9 @@ def plot_boxes_cv2(img, boxes, savename=None, class_names=None, color=None):
             rgb = color
         else:
             rgb = (255, 0, 0)
-        if len(box) >= 7 and class_names:
-            cls_conf = box[5]
-            cls_id = int(box[6])
+        if len(box) >= 6 and class_names:
+            cls_conf = box[4]
+            cls_id = int(box[5])
             #print('%s: %f' % (class_names[cls_id], cls_conf))
             classes = len(class_names)
             offset = cls_id * 123457 % classes
