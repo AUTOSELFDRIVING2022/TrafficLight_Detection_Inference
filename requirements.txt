@@ -1,10 +1,10 @@
 # pip install -U -r requirements.txt
-filterpy==1.1.0
-numpy==1.18.2
-torch==1.7.0
-scikit_image==0.16.2
-matplotlib==2.2.3
-tqdm==4.43.0
-easydict==1.9
-filterpy==1.4.5
-scipy==1.7.3
+filterpy>=1.1.0
+numpy>=1.18.2
+torch>=1.7.0
+scikit_image>=0.16.2
+matplotlib>=2.2.3
+tqdm>=4.43.0
+easydict>=1.9
+filterpy>=1.4.5
+scipy>=1.7.3
