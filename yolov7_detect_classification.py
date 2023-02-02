@@ -16,9 +16,13 @@ from utils.torch_utils import select_device, load_classifier, time_synchronized,
 from torchvision.models import resnet34
 
 def detect(save_img=True):
-    source, weights, view_img, save_txt, imgsz, trace = opt.source, opt.weights, opt.view_img, opt.save_txt, opt.img_size, not opt.no_trace
-    save_img = not opt.nosave and not source.endswith('.txt')  # save inference images
+    source, det_weights, view_img, save_txt, imgsz, trace = opt.source, opt.det_weights, opt.view_img, opt.save_txt, opt.img_size, not opt.no_trace
+    classifyTL, classifyEC, export_video_result = opt.classificationTL, opt.classificationEC, opt.save_video_result, 
     save_cls_img = opt.save_cl_result
+    save_img = opt.save_result_image #save inference images
+    
+    if export_video_result: save_path_video = './result_video'
+        
     webcam = source.isnumeric() or source.endswith('.txt') or source.lower().startswith(
         ('rtsp://', 'rtmp://', 'http://', 'https://'))
 
@@ -32,40 +36,40 @@ def detect(save_img=True):
     half = device.type != 'cpu'  # half precision only supported on CUDA
 
     # Load model
-    model = attempt_load(weights, map_location=device)  # load FP32 model
+    model = attempt_load(det_weights, map_location=device)  # load FP32 model
     stride = int(model.stride.max())  # model stride
     imgsz = check_img_size(imgsz, s=stride)  # check img_size
 
-    #if trace:
-    #    model = TracedModel(model, device, opt.img_size)
-
     if half:
         model.half()  # to FP16
-
-    # Second-stage classifier
-    classifyTL = True
-    classifyEC = True
     
+    # Get names and colors
+    names = model.module.names if hasattr(model, 'module') else model.names
+    colors = [[random.randint(0, 255) for _ in range(3)] for _ in names]
+    
+    # Second-stage classifier
     if classifyTL:
-        #modelc = load_classifier(name='resnet34', n=11)  # initialize
-        
-        #modelc.load_state_dict(torch.load('data/weight/best_epochresnet34_221014_cls11.bin', map_location=device)['model']).to(device).eval()
-        #modelTL = resnet34(pretrained=False, num_classes=11).to('cuda')
-        #checkpointTL = torch.load('./data/weight/best_epoch_resnet34_221016_cls11.pt', map_location='cuda')
-        
-        modelTL = resnet34(pretrained=False, num_classes=12).to('cuda')
-        checkpointTL = torch.load('./data/weight/best_epoch_230201_cls12.pt', map_location='cuda')
+        traffic_light_class = 12
+        modelTL = resnet34(pretrained=False, num_classes=traffic_light_class).to('cuda')
+        checkpointTL = torch.load(opt.tl_weights, map_location='cuda')
         modelTL.load_state_dict(checkpointTL)
         modelTL.eval()
-    
+
+        #names = names + ['Green','Green_left','Red_left','Red', 'Red_yellow', 'Yellow', 'Yellow21', 'Yellow_other', 'Yellow_green4','Off','Other'] #11
+        names = names + ['green', 'green_left', 'off', 'other', 'pedestrain', 'red', 'red_left', 'red_yellow', 'yellow', 'yellow21', 'yellow_green4', 'yellow_other'] #12
+        colors = [[random.randint(0, 255) for _ in range(3)] for _ in names]
+        
     if classifyEC:
-        modelEC = resnet34(pretrained=False, num_classes=5).to('cuda')
-        checkpointEC = torch.load('./data/weight/best_epoch_resnet34_ec_221016.pt', map_location='cuda')
+        emergency_car_class = 5
+        modelEC = resnet34(pretrained=False, num_classes=emergency_car_class).to('cuda')
+        checkpointEC = torch.load(opt.ec_weights, map_location='cuda')
         modelEC.load_state_dict(checkpointEC)
         modelEC.eval()
+        
+        names = names + ['Ambulance','Fire_Truck','Police_Car', 'EC_Other']
+        colors = [[random.randint(0, 255) for _ in range(3)] for _ in names]
     else: 
         modelEC = None
-        
         
     # Set Dataloader
     vid_path, vid_writer = None, None
@@ -75,18 +79,6 @@ def detect(save_img=True):
         dataset = LoadStreams(source, img_size=imgsz, stride=stride)
     else:
         dataset = LoadImages(source, img_size=imgsz, stride=stride)
-
-    # Get names and colors
-    names = model.module.names if hasattr(model, 'module') else model.names
-    colors = [[random.randint(0, 255) for _ in range(3)] for _ in names]
-    if classifyTL:
-        #names = names + ['Green','Green_left','Red_left','Red', 'Red_yellow', 'Yellow', 'Yellow21', 'Yellow_other', 'Yellow_green4','Off','Other'] #11
-        names = names + ['green', 'green_left', 'off', 'other', 'pedestrain', 'red', 'red_left', 'red_yellow', 'yellow', 'yellow21', 'yellow_green4', 'yellow_other'] #12
-        colors = [[random.randint(0, 255) for _ in range(3)] for _ in names]
-        
-    if classifyEC:
-        names = names + ['Ambulance','Fire_Truck','Police_Car', 'EC_Other']
-        colors = [[random.randint(0, 255) for _ in range(3)] for _ in names]
         
     # Run inference
     if device.type != 'cpu':
@@ -95,10 +87,7 @@ def detect(save_img=True):
     old_img_b = 1
     
     # Save result to video sequence.
-    export_video_result = True
     if export_video_result:
-        save_path_video = './result_video'
-
         fps, w, h = 3, 1920, 1080
         save_path_video += '.mp4'
         vid_writer = cv2.VideoWriter(save_path_video, cv2.VideoWriter_fourcc(*'mp4v'), fps, (w, h))
@@ -187,28 +176,25 @@ def detect(save_img=True):
 
     if save_txt or save_img:
         s = f"\n{len(list(save_dir.glob('labels/*.txt')))} labels saved to {save_dir / 'labels'}" if save_txt else ''
-        #print(f"Results saved to {save_dir}{s}")
 
     print(f'Done. ({time.time() - t0:.3f}s)')
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--weights', nargs='+', type=str, default='./data/weight/yolov7_X_ec_db_0_92_221013.pt', help='model.pt path(s)')
-    #parser.add_argument('--source', type=str, default='data/traffic_light_test/', help='source')  # file/folder, 0 for webcam
+    parser.add_argument('--det_weights', type=str, default='./data/weight/yolov7_X_ec_db_0_92_221013.pt', help='model.pt path(s)')
+    parser.add_argument('--tl_weights', type=str, default='./data/weight/best_epoch_230201_cls12.pt', help='model.pt path(s)')
+    parser.add_argument('--ec_weights', type=str, default='./data/weight/best_epoch_resnet34_ec_221016.pt', help='model.pt path(s)')
     parser.add_argument('--source', type=str, default='/dataset/Traffic_Light_K5/Image/', help='source')  # file/folder, 0 for webcam
-    
-    ### Emergency Car Demo Data.
-    #parser.add_argument('--source', type=str, default='/dataset/2022_Demo_Folder/Emergency_Car', help='source')  # file/folder, 0 for webcam
-    
     parser.add_argument('--img-size', type=int, default=960, help='inference size (pixels)')
     parser.add_argument('--conf-thres', type=float, default=0.25, help='object confidence threshold')
     parser.add_argument('--iou-thres', type=float, default=0.45, help='IOU threshold for NMS')
     parser.add_argument('--device', default='0', help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
-    parser.add_argument('--view-img', action='store_true', help='display results')
-    parser.add_argument('--save-txt', action='store_true', help='save results to *.txt')
-    parser.add_argument('--save-conf', action='store_true', help='save confidences in --save-txt labels')
-    parser.add_argument('--nosave', action='store_true', help='do not save images/videos')
-    parser.add_argument('--save_cl_result', action='store_true',default=True, help='save classified result')
+    parser.add_argument('--view-img', default=False, help='display results')
+    parser.add_argument('--save-txt', default=False, help='save results to *.txt')
+    parser.add_argument('--save-conf', default=False, help='save confidences in --save-txt labels')
+    parser.add_argument('--save_result_image', default=False, help='do not save images/videos')
+    parser.add_argument('--save_video_result', default=False, help='save video result')
+    parser.add_argument('--save_cl_result', default=False, help='save classified result')
     parser.add_argument('--classes', nargs='+', type=int, help='filter by class: --class 0, or --class 0 2 3')
     parser.add_argument('--agnostic-nms', action='store_true', help='class-agnostic NMS')
     parser.add_argument('--augment', action='store_true', help='augmented inference')
@@ -217,6 +203,8 @@ if __name__ == '__main__':
     parser.add_argument('--name', default='k5_tl', help='save results to project/name')
     parser.add_argument('--exist-ok', action='store_true', help='existing project/name ok, do not increment')
     parser.add_argument('--no-trace', action='store_true', help='don`t trace model')
+    parser.add_argument('--classificationTL', default=True, help='Traffic Light Calssification model ON')
+    parser.add_argument('--classificationEC', default=True, help='Emergency Car Calssification model ON')
     opt = parser.parse_args()
     print(opt)
 

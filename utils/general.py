@@ -848,6 +848,9 @@ def id_generator(size=6, chars=string.ascii_uppercase + string.digits):
     return ''.join(random.choice(chars) for _ in range(size))
 
 def apply_classifier(x, modelTL, modelEC, img, im0, save_img, cls_names):
+    trafficLightClass, EmergencyCarClass = 6, 7
+    tl_nH, tl_nW = 64, 128
+    ec_nH, ec_nW = 256, 256
     # applies a second stage classifier to yolo outputs
     im0 = [im0] if isinstance(im0, np.ndarray) else im0
     for i, d in enumerate(x):  # per image
@@ -856,42 +859,32 @@ def apply_classifier(x, modelTL, modelEC, img, im0, save_img, cls_names):
             # Classes
             pred_cls1 = d[:, 5].long()
             
-            # Reshape and pad cutouts
-            # b = xyxy2xywh(d[:, :4])  # boxes
-            # b[:, 2:] = b[:, 2:].max(1)[0].unsqueeze(1)  # rectangle to square
-            # b[:, 2:] = b[:, 2:] * 1.3 + 10  # pad
-            # d[:, :4] = xywh2xyxy(b).long()
-
             # Rescale boxes from img_size to im0 size
             scale_coords(img.shape[2:], d[:, :4], im0[i].shape)
-
             
             ims = []
             for j, a in enumerate(d):  # per item
                 
-                if int(a[5]) == 6: #6: TrafficLight
+                if int(a[5]) == trafficLightClass: #6: TrafficLight
                     cutout = im0[i][int(a[1]):int(a[3]), int(a[0]):int(a[2])]
                     
-                    im_resize = cv2.resize(cutout, (128, 64))  # BGR resize 128x64
+                    im_resize = cv2.resize(cutout, (tl_nW, tl_nH))  # BGR resize 128x64x3
                     im = im_resize[:, :, ::-1].transpose(2, 0, 1)  # BGR to RGB, to 3x416x416
-                    #im = im_resize.transpose(2, 0, 1)  # BGR to RGB, to 3x416x416
                     im = np.ascontiguousarray(im, dtype=np.float32)  # uint8 to float32
                     im /= 255.0  # 0 - 255 to 0.0 - 1.0
                     im= np.expand_dims(im,axis=0)
 
                     pred_cls2 = modelTL(torch.Tensor(im).to(d.device)).argmax(1)  # classifier prediction
-                    x[i][j][5] = pred_cls2 + 8  # retain matching class detections
+                    x[i][j][5] = pred_cls2 + 8  # retain matching class detections (0~7: Detection class)
                     
-                    if save_img:
+                    if save_img: ###For debug
                         cls_name = cls_names[torch.add(pred_cls2,8).cpu().numpy()[0]]
-                        
                         name = "./tl_classification_data2/{}_keti_new_20230116_".format(cls_name) + id_generator() + '.png'
-                        cv2.imwrite(name,im_resize)
-                        
-                elif int(a[5]) == 7: #7: Emergency Car 
+                        cv2.imwrite(name,im_resize)    
+                elif int(a[5]) == EmergencyCarClass: #7: Emergency Car 
                     cutout = im0[i][int(a[1]):int(a[3]), int(a[0]):int(a[2])]
                     #cv2.imwrite("./test_{}.jpg".format(j),cutout)
-                    im = cv2.resize(cutout, (256, 256))  # BGR
+                    im = cv2.resize(cutout, (ec_nW, ec_nH))  # BGR
 
                     im = im[:, :, ::-1].transpose(2, 0, 1)  # BGR to RGB, to 3x416x416
                     im = np.ascontiguousarray(im, dtype=np.float32)  # uint8 to float32
@@ -899,7 +892,7 @@ def apply_classifier(x, modelTL, modelEC, img, im0, save_img, cls_names):
                     im= np.expand_dims(im,axis=0)
 
                     pred_cls3 = modelEC(torch.Tensor(im).to(d.device)).argmax(1)  # classifier prediction
-                    x[i][j][5] = pred_cls3 + 19  # retain matching class detections
+                    x[i][j][5] = pred_cls3 + 20  # retain matching class detections (0~19: Detection class + Traffic Light Class)
                 else: 
                     continue
     return x
