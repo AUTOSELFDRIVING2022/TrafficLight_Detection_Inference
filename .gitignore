@@ -245,3 +245,4 @@ pred/ros_temporal/frame0052_detected2.jpg
 pred/ros_temporal/frame0053_detected2.jpg
 data/weight/yolov4_211203.weights
 data/ec_tl_test/*
+result/*
