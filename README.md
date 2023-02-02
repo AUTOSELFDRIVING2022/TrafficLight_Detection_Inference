@@ -2,8 +2,8 @@
 This source is only includes inference code.
 Our detector has a seven different classes:
  - Person, Bike, Car, Bus, Truck, Traffic Sign, Traffic Light, Emergency Car
-Our traffic light classification supports a 12 traffic light types (South Korea).
- - green, green_left, off, other, pedestrain, red, red_left, red_yellow, yellow, yellow21, yellow_green4, yellow_other
+Our traffic light classification supports a 12 traffic light types.
+ - green, green_left, off, other, pedestrain, red, red_left, red_yellow, yellow, yellow21, yellow_green4, yellow_other (South Korea).
 ###### base code of YoloV7 
 A PyTorch implementation of YOLOv7.
 - Paper Yolov7: https://arxiv.org/abs/2207.02696
