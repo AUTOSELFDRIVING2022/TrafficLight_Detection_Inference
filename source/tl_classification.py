@@ -9,18 +9,21 @@ from source.model.modelTrafficLightLSTM import TrafficLightNet_64x32_LSTM, Traff
 from source.model.resnet18LSTM import ResNetLSTM, BasicBlock
 from source.model.TSM_model import TSN
 from source.resnet18 import ResNet18, BasicBlock
+from torchvision.models import resnet34
 
 class classifierTL(object):
-    def __init__(self, classifierType='32x32', weightFile='None', batchSize = 1):
+    def __init__(self, classifierType='32x32', weightFile='None', batchSize = 1, classes = 7):
         checkpoint = torch.load(weightFile, map_location='cuda')
         if classifierType == '32x32':
             #self.modelTL = TrafficLightNet_32x32_noSTN(nclasses=17).to('cuda')
             #self.modelTL = TrafficLightNet_64x32_coordConv(nclasses=7).to('cuda')
-            self.modelTL = TrafficLightNet_64x32_noSTN(nclasses=7).to('cuda')
-        elif classifierType == 'resnet':
-            self.modelTL = ResNet18(BasicBlock, [2, 2, 2, 2], 7).to('cuda')
+            self.modelTL = TrafficLightNet_64x32_noSTN(nclasses=classes).to('cuda')
+        elif classifierType == 'resnet18':
+            self.modelTL = ResNet18(BasicBlock, [2, 2, 2, 2], classes).to('cuda')
+        elif classifierType == 'resnet34':
+            self.modelTL = resnet34(pretrained=False, num_classes=classes).to('cuda')
         else:
-            self.modelTL = TrafficLightNet_64x64_noSTN(nclasses=7).to('cuda')
+            self.modelTL = TrafficLightNet_64x64_noSTN(nclasses=classes).to('cuda')
             #self.modelTL = TrafficLightNet_64x64_coordConv(nclasses=7).to('cuda')
             #self.modelTL = TrafficLightNet_64x64_coordConv(nclasses=7).to('cuda')
         

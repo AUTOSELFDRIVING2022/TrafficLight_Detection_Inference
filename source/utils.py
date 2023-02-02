@@ -149,12 +149,15 @@ def plot_boxes_cv2_tl_temporal(img, boxes, tl_classes, savename=None, class_name
         cv2.imwrite(savename, img)
     return img
 
-def plot_boxes_cv2_tl(img, boxes, savename=None, class_names=None, color=None):
+def plot_boxes_cv2_tl(img, boxes, savename=None, class_names=None, color=None, tl_class_number=None):
     import cv2
     img = np.copy(img)
     colors = np.array([[1, 0, 1], [0, 0, 1], [0, 1, 1], [0, 1, 0], [1, 1, 0], [1, 0, 0]], dtype=np.float32)
-    tl_names = ['green', 'green_left','red_left',   'red',    'yellow', 'off',     'other', 'red_yellow','yellow_green','yellow_left4','red2',   'yellow2',   'yellow3_2','yellow3_3','red3_1','red3_2','red3_3']
-    rgbTL = [[0,128,0],  [173,255,47],[60,179,113],[0,0,255],[0,255,255], [0,0,0],[0,0,0], [0,255,255], [0,255,255],   [0,255,255],  [0,0,255], [0,255,255], [0,255,255],[0,255,255],[0,0,255],[0,0,255],[0,0,255] ]
+    if tl_class_number == 7:
+        tl_names = ['green', 'green_left','red_left',   'red',    'yellow', 'off',     'other', 'red_yellow','yellow_green','yellow_left4','red2',   'yellow2',   'yellow3_2','yellow3_3','red3_1','red3_2','red3_3']
+    else:
+        tl_names = ['green','green_left','red_left','red', 'red_yellow', 'yellow', 'yellow21', 'yellow_other', 'yellow_green4','off','other']
+    rgbTL = [[0,255,0],  [0,255,0],[0,0,255],[0,0,255],[255,0,255], [0,255,255],[0,255,255], [0,255,255], [0,255,255],   [0,0,0],  [255,255,255]]
     traffic_light_class_number = class_names.index("TL")
 
     def get_color(c, x, max_val):
@@ -221,10 +224,10 @@ def plot_boxes_cv2(img, boxes, savename=None, class_names=None, color=None):
     height = img.shape[0]
     for i in range(len(boxes)):
         box = boxes[i]
-        x1 = int(box[0] * width)
-        y1 = int(box[1] * height)
-        x2 = int(box[2] * width)
-        y2 = int(box[3] * height)
+        x1 = int(box[0])
+        y1 = int(box[1])
+        x2 = int(box[2])
+        y2 = int(box[3])
 
         if color:
             rgb = color
